@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Travel modes in directions</title>
+    <style>
+      #target {
+        width: 345px;
+      }
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+      .controls {
+        margin-top: 16px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        height: 32px;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        max-width:350px;
+        text-overflow:ellipsis;
+        padding: 0 11px 0 13px;
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        margin-left: 12px;
+        padding: 0 11px 0 13px;
+        left:0px !important;
+        position:relative !important;
+      }
+      .controls:focus {
+        border-color: #4d90fe;
+      }
+
+      #type-selector {
+        color: #fff;
+        background-color: #4d90fe;
+        padding: 5px 11px 0px 11px;
+      }
+
+      #type-selector label {
+        font-family: Roboto;
+        font-size: 13px;
+        font-weight: 300;
+      }
+      #panel {
+        position: absolute;
+        top: 5px;
+        left: 50%;
+        margin-left: -180px;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+      }
+      #directions-panel {
+        height: 100%;
+        float: right;
+        width: 390px;
+        overflow: auto;
+      }
+
+      #map-canvas {
+        margin-right: 400px;
+      }
+
+      #control {
+        background: #fff;
+        padding: 5px;
+        font-size: 14px;
+        font-family: Arial;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 2px rgba(33, 33, 33, 0.4);
+        display: none;
+      }
+
+      @media print {
+        #map-canvas {
+          height: 500px;
+          margin: 0;
+        }
+
+        #directions-panel {
+          float: none;
+          width: auto;
+        }
+      }
+    </style>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=places"></script>
+    <script>
+var directionsDisplay;
+var directionsService = new google.maps.DirectionsService();
+var map;
+var markers = [];
+
+function initialize() {
+  directionsDisplay = new google.maps.DirectionsRenderer();
+  var centerLatLong = new google.maps.LatLng(37.7856359,-122.397119);
+  var mapOptions = {
+    zoom: 14,
+    center: centerLatLong
+  }
+  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+  directionsDisplay.setMap(map);
+  directionsDisplay.setPanel(document.getElementById('directions-panel'));
+
+  var firstInput = document.getElementById('first');
+  setListeners(firstInput, map);
+  var secondInput = document.getElementById('second');
+  setListeners(secondInput, map);
+  var endInput = document.getElementById('end');
+  setListeners(endInput, map);
+}
+function setListeners(input, map){
+  map.controls[google.maps.ControlPosition.TOP_CENTER].push(input);
+  var searchBox = new google.maps.places.SearchBox(input);
+  google.maps.event.addListener(searchBox, 'places_changed', function() {
+    getPlaces(searchBox, map, input);
+  });
+
+}
+function calcRoute() {
+  var selectedMode = document.getElementById('mode').value;
+  var firstWaypoint = document.getElementById('first').value;
+  var secondWaypoint = document.getElementById('second').value;
+  var start = "282 2nd Street 4th floor, San Francisco, CA 94105"
+  var end = document.getElementById('end').value;
+  var waypoints = [];
+  var waypointUsed = null;
+
+  if(end == ""){
+    if (firstWaypoint != ""){
+      end = firstWaypoint;
+      waypointUsed  = 1;
+    }else if(secondWaypoint != ""){
+      end = secondWaypoint;
+      waypointUsed = 2;
+    }else{
+      end = start;
+    }
+  }
+  if(waypointUsed == 1 && secondWaypoint != ""){
+    waypoints.push({location: secondWaypoint, stopover: true});
+  }
+  else if (waypointUsed == null){
+    //add in waypoints, not used yet
+    if (firstWaypoint != ""){
+      waypoints.push({location: firstWaypoint, stopover: true});
+    }
+    if(secondWaypoint != ""){
+      waypoints.push({location: secondWaypoint, stopover: true});
+    }
+  }
+  //make request and display directions within 15 miles
+  var request = {
+      origin: start,
+      destination: end,
+      waypoints: waypoints,
+      optimizeWaypoints: true,
+      travelMode: google.maps.TravelMode[selectedMode]
+  };
+  directionsService.route(request, function(response, status) {
+    if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
+    }
+  });
+}
+function getPlaces(searchBox, map, input){
+  var places = searchBox.getPlaces();
+
+  var bounds = new google.maps.LatLngBounds();
+  for (var i = 0; i < places.length; i++) {
+    createMarker(places[i],input);
+  }
+}
+function createMarker(place,input){
+  var marker = new google.maps.Marker({
+    map: map,
+    position: place.geometry.location,
+    title: place.formatted_address
+  });
+  google.maps.event.addListener(marker, 'click', function() {
+    //set inputBox to text of selected marker
+    input.value = this.Zf.title;
+    calcRoute();
+  });
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+    <div id="panel">
+      <b>Mode of Travel: </b>
+      <select id="mode" onchange="calcRoute();">
+        <option value="DRIVING">Driving</option>
+        <option value="WALKING">Walking</option>
+        <option value="BICYCLING">Bicycling</option>
+        <option value="TRANSIT">Transit</option>
+      </select>
+      <div style="max-width:66%;">
+      <input id="first" class="controls" type="text" placeholder="First Waypoint" onchange="calcRoute();">
+      <input id="second" class="controls" type="text" placeholder="Second Waypoint" onchange="calcRoute();">
+      <input id="end" class="controls" type="text" placeholder="End"  onchange="calcRoute();">
+      </div>
+    </div>
+    <div id="waypoints"></div>
+    <div id="directions-panel"></div>
+    <div id="map-canvas"></div>
+  </body>
+</html>
